@@ -1,6 +1,9 @@
 const https = require('https');
 const Mixer = require('@mixer/client-node');
 const ws = require('ws');
+const Data = {
+    game: "None"
+}
 
 let userInfo;
 
@@ -94,10 +97,15 @@ function ParseMessage(sc, data) {
         ShowStat(sc, data);
         return;
     }
+
+    if (text.toLowerCase().startsWith('!game')) {
+        SetGame(sc, data);
+        return;
+    }
 }
 
 function ShowInfo(sc, data) {
-    sc.call('msg', [`[CBT] While I do not know how, because my Creator lazy asshole`]);
+    sc.call('msg', [`[CBT] Commands: !game, !stat`]);
 }
 
 function ShowStat(sc, data) {
@@ -110,6 +118,20 @@ function ShowStat(sc, data) {
             console.log(data);
         });
     });
+}
+
+function SetGame(sc, data) {
+    if(data.user_roles.includes("Owner")) {
+        var name = data.message.message[0].data.substr(5).trim();
+        if (name) {
+            console.log(name);  
+            Data.game = name;
+            console.log(Data.game);
+            sc.call('msg', [`[CBT] current game: ${Data.game}`]);    
+            return;
+        }   
+    }
+    sc.call('msg', [`[CBT] current game: ${Data.game}`]);   
 }
 
 
