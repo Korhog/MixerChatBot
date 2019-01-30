@@ -1,9 +1,9 @@
 const Helpers = require('../helpers');
-const Https = require('https');
-
 const Mixer = require('@mixer/client-node');
-const client = new Mixer.Client(new Mixer.DefaultRequestRunner());
+const Interactive = require('@mixer/interactive-node');
 
+const client = new Mixer.Client(new Mixer.DefaultRequestRunner());
+const helpMessage = `Команды: !stat !gus`;
 
 // main chat engine
 module.exports = {
@@ -13,8 +13,17 @@ module.exports = {
     _channelId: null, 
     _endpoints: null, 
     _authkey: null,
+    _game: null,
 
-    init: function(sc, userId, channelId, endpoints, authkey, name) {
+    init: function(sc, userId, channelId, endpoints, authkey, name) {       
+
+        // let ws = require('ws');
+        // Interactive.setWebSocket(ws);
+        // this._game = new Interactive.GameClient();
+        // this._game.on('open', () => {
+        //     console.log('Connected to Interactive!');
+        // });
+        // this._game.open(Helpers.getGameNodeConnection());
 
         this._socket = sc;   
         this._userId = userId;
@@ -31,8 +40,9 @@ module.exports = {
         var self = this;
         client.request('GET', `channels/${this._channelId}`)
             .then(res => {
-            const viewers = res.body.viewersTotal;
-            console.log(`You have ${viewers} total viewers...`);
+                const viewers = res.body.viewersCurrent;
+                self.sendMessage(`${viewers} человек смотрит как @Korhog позорится. Уже набрал ${res.body.user.sparks} искр`);
+                console.log(`You have ${viewers} total viewers...`);
         });
     },
 
@@ -41,13 +51,27 @@ module.exports = {
         var command = Helpers.getCommand(message);
         if (command) {
             switch (command) {
-                case '!stat': this.getStatic();break;
-
-                default: this.sendMessage(`Команда не найдена`);
+                case '!stat': 
+                    this.getStatic();
+                    break;
+                case '!dummy': 
+                    this.dummy();
+                    break;
+                case '!help': 
+                    this.sendMessage(helpMessage);
+                    break;
+                default: 
+                    this.sendMessage(`Команда не найдена`);
             }            
             return;
-        }      
+        }  
         
+        if (data.user_roles.includes("Owner")) {
+            // не обрабатываем сообщенич
+            return;
+        }       
+        
+
         if (message.toLowerCase().includes('где') && message.endsWith('?')) {
             var v = parseInt(Math.random() * 3);
             switch(v)
@@ -65,9 +89,28 @@ module.exports = {
         this._socket.call('msg', [` [ ${this._name} ] ${message}`]); 
     },   
 
+    dummy: function() {
+        client.request('GET', `achievements`).then(res => {
+                const viewers = res.body;
+        });
+    },
 
-
-    
-
-
+    gus: function() {
+        var text = `
+        ЗАПУСКАЕМ 
+        ░ГУСЯ░▄▀▀▀▄░РАБОТЯГИ░░ 
+        ▄███▀░◐░░░▌░░░░░░░ 
+        ░░░░▌░░░░░▐░░░░░░░ 
+        ░░░░▐░░░░░▐░░░░░░░ 
+        ░░░░▌░░░░░▐▄▄░░░░░ 
+        ░░░░▌░░░░▄▀▒▒▀▀▀▀▄ 
+        ░░░▐░░░░▐▒▒▒▒▒▒▒▒▀▀▄ 
+        ░░░▐░░░░▐▄▒▒▒▒▒▒▒▒▒▒▀▄ 
+        ░░░░▀▄░░░░▀▄▒▒▒▒▒▒▒▒▒▒▀▄ 
+        ░░░░░░▀▄▄▄▄▄█▄▄▄▄▄▄▄▄▄▄▄▀▄ 
+        ░░░░░░░░░░░▌▌░▌▌░░░░░ 
+        ░░░░░░░░░░░▌▌░▌▌░░░░░ 
+        ░░░░░░░░░▄▄▌▌▄▌▌░░░░░
+        `;
+    }
 }

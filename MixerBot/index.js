@@ -15,10 +15,7 @@ let userInfo;
 
 const client = new Mixer.Client(new Mixer.DefaultRequestRunner());
 client.use(new Mixer.OAuthProvider(client, {
-    tokens: {
-        access: 'YqasEfNeP9VNq75cgJ1kVu8D4iENSBb5OI6cn09ybgd0y9hTGyO6UYfUjZOqwfza',
-        expires: Date.now() + (365 * 24 * 60 * 60 * 1000)
-    },
+    tokens: Helpers.getToken(),
 }));
 
 client.request('GET', 'users/current')
@@ -37,20 +34,20 @@ client.request('GET', 'users/current')
 
 // делаем соккет
 function createChatSocket (userId, channelId, endpoints, authkey) {
+    
     const socket = new Mixer.Socket(ws, endpoints).boot();
-    Data.channelId = channelId;
-
-    Engine.init(socket, userId, channelId, endpoints, authkey);
+    Engine.init(socket, userId, channelId, endpoints, authkey);    
+    Data.channelId = channelId;    
 
     socket.auth(channelId, userId, authkey)
-    .then(() => {
-        console.log('You are now authenticated!');
-        return socket.call('msg', ['[CBT] Hello!']);
-    })
-    .catch(error => {
-        console.error('Oh no! An error occurred.');
-        console.error(error);
-    });
+        .then(() => {
+            console.log('You are now authenticated!');
+            return socket.call('msg', ['[CBT] Hello!']);
+        })
+        .catch(error => {
+            console.error('Oh no! An error occurred.');
+            console.error(error);
+        });
 
     // Listen for chat messages. Note you will also receive your own!
     socket.on('ChatMessage', data => Engine.getMessage(data));
@@ -64,53 +61,6 @@ function createChatSocket (userId, channelId, endpoints, authkey) {
         console.error('Socket error');
         console.error(error);
     });
-}
-
-function ParseMessage(sc, data) {
-    if (data.message.meta.is_skill) {
-        var skill = data.message.meta.skill; 
-        sc.call('msg', [`[CBT] Mmmm ${skill.cost} sparks from @${data.user_name}!<br/> Swe-e-et!`]);
-        return;
-    }
-
-
-    var text = data.message.message[0].data;
-    if (text.toLowerCase().startsWith('!ping')) {
-        Engine.sendMessage(`@${data.user_name} send ${text}`);
-        return;
-    }
-
-    // Троленк
-    if (text.toLowerCase().includes('нет')){
-        sc.call('msg', [`[CBT] @${data.user_name} пидора ответ `]); 
-        return;
-    }    
-    
-    if (text.toLowerCase().includes('где') && text.endsWith('?')) {
-        var v = parseInt(Math.random() * 3);
-        switch(v)
-        {
-            case 1: sc.call('msg', [`[CBT] @${data.user_name} у тебя за щекой`]); break;
-            case 2: sc.call('msg', [`[CBT] @${data.user_name} за щекой проверяй`]);  break;
-            default: sc.call('msg', [`[CBT] @${data.user_name} отправил тебе за щеку`]);
-        } 
-        return;       
-    }
-
-    if (text.toLowerCase().startsWith('!help')) {
-        ShowInfo(sc, data);
-        return;
-    }
-
-    if (text.toLowerCase().startsWith('!stat')) {
-        ShowStat(sc, data);
-        return;
-    }
-
-    if (text.toLowerCase().startsWith('!game')) {
-        SetGame(sc, data);
-        return;
-    }
 }
 
 function UserJoin(sc, data) {
