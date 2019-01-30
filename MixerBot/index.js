@@ -1,9 +1,15 @@
 const https = require('https');
+const Helpers = require('./helpers');
+const Engine = require('./engine/engine');
+
 const Mixer = require('@mixer/client-node');
 const ws = require('ws');
 const Data = {
-    game: "None"
+    channelId: null,
+    game: null
 }
+
+const botName = 'ChatBot';
 
 let userInfo;
 
@@ -17,15 +23,11 @@ client.use(new Mixer.OAuthProvider(client, {
 
 client.request('GET', 'users/current')
     .then(response => {
-        console.log(response.body);
-        // Store the logged in user's details for later reference
         userInfo = response.body;
-        // Returns a promise that resolves with our chat connection details.
         return new Mixer.ChatService(client).join(response.body.channel.id);
     })
     .then(response => {
         const body = response.body;
-        console.log(body);
         return createChatSocket(userInfo.id, userInfo.channel.id, body.endpoints, body.authkey);
     })
     .catch(error => {
@@ -36,6 +38,9 @@ client.request('GET', 'users/current')
 // делаем соккет
 function createChatSocket (userId, channelId, endpoints, authkey) {
     const socket = new Mixer.Socket(ws, endpoints).boot();
+    Data.channelId = channelId;
+
+    Engine.init(socket, userId, channelId, endpoints, authkey);
 
     socket.auth(channelId, userId, authkey)
     .then(() => {
@@ -48,13 +53,11 @@ function createChatSocket (userId, channelId, endpoints, authkey) {
     });
 
     // Listen for chat messages. Note you will also receive your own!
-    socket.on('ChatMessage', data => {        
-        ParseMessage(socket, data);
-    });
+    socket.on('ChatMessage', data => Engine.getMessage(data));
 
-    socket.on('UserJoin', data => {
-        socket.call('msg', [`[CBT] Hello @${data.username}! I'm ChatBot. Send !help for more info`]);  
-    });
+    socket.on('UserJoin', data =>{ 
+        UserJoin(socket, data);
+    });    
 
     // Listen for socket errors. You will need to handle these here.
     socket.on('error', error => {
@@ -64,10 +67,16 @@ function createChatSocket (userId, channelId, endpoints, authkey) {
 }
 
 function ParseMessage(sc, data) {
+    if (data.message.meta.is_skill) {
+        var skill = data.message.meta.skill; 
+        sc.call('msg', [`[CBT] Mmmm ${skill.cost} sparks from @${data.user_name}!<br/> Swe-e-et!`]);
+        return;
+    }
+
+
     var text = data.message.message[0].data;
     if (text.toLowerCase().startsWith('!ping')) {
-        sc.call('msg', [`[CBT] Massage parsed @${data.user_name} send ${text}`]);
-        console.log(`Ponged ${data.user_name}`);
+        Engine.sendMessage(`@${data.user_name} send ${text}`);
         return;
     }
 
@@ -78,12 +87,12 @@ function ParseMessage(sc, data) {
     }    
     
     if (text.toLowerCase().includes('где') && text.endsWith('?')) {
-        var v = parseInt(Math.random() * 2 + 1);
+        var v = parseInt(Math.random() * 3);
         switch(v)
         {
             case 1: sc.call('msg', [`[CBT] @${data.user_name} у тебя за щекой`]); break;
             case 2: sc.call('msg', [`[CBT] @${data.user_name} за щекой проверяй`]);  break;
-            case 3: sc.call('msg', [`[CBT] @${data.user_name} отправил тебе за щеку`]);  break;
+            default: sc.call('msg', [`[CBT] @${data.user_name} отправил тебе за щеку`]);
         } 
         return;       
     }
@@ -104,34 +113,13 @@ function ParseMessage(sc, data) {
     }
 }
 
-function ShowInfo(sc, data) {
-    sc.call('msg', [`[CBT] Commands: !game, !stat`]);
-}
-
-function ShowStat(sc, data) {
-    https.get('https://mixer.com/api/v2/chats/637843/users', resp => {
-        let data = '';
-        resp.on('data', chunk => data += chunk);
-        resp.on('end', () =>{
-            var users = JSON.parse(data); 
-            sc.call('msg', [`[CBT] ${users.length} пользователей смотрят как @Korhog позорится`]);           
-            console.log(data);
-        });
-    });
-}
-
-function SetGame(sc, data) {
-    if(data.user_roles.includes("Owner")) {
-        var name = data.message.message[0].data.substr(5).trim();
-        if (name) {
-            console.log(name);  
-            Data.game = name;
-            console.log(Data.game);
-            sc.call('msg', [`[CBT] current game: ${Data.game}`]);    
-            return;
-        }   
+function UserJoin(sc, data) {
+    if (data.roles.includes("Owner")) {
+        Engine.sendMessage(`Все приветствуем повелителя чата @${data.username}!`);
+        return;
     }
-    sc.call('msg', [`[CBT] current game: ${Data.game}`]);   
+    
+    Engine.sendMessage(`Привет, @${data.username}! жмакни !help что б узнать, всякое разное`);    
 }
 
 
